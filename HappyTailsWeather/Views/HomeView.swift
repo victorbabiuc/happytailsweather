@@ -22,7 +22,6 @@ struct HomeView: View {
                     headerSection
                     weatherStatusCard
                     safetyAssessmentCard
-                    todaysBestTimesSection
                     currentConditionsCard
                     startWalkButton
                     Spacer(minLength: 50)
@@ -211,17 +210,6 @@ struct HomeView: View {
         .background(
             RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
                 .fill(Color(.systemGray6))
-        )
-    }
-    private var todaysBestTimesSection: some View {
-        TodaysBestTimesView(
-            isPremium: isPremium,
-            selectedBreed: selectedBreed,
-            weatherData: weatherService.weatherData,
-            onUpgrade: {
-                // Navigate to Profile tab for upgrade
-                selectedTab = 2
-            }
         )
     }
     private var currentConditionsCard: some View {

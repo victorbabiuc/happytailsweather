@@ -79,6 +79,10 @@ struct Constants {
     
     struct App {
         static let name = "Happy Tails Weather"
+        
+        // Feature flag to disable premium features for App Store approval
+        // Set to true to re-enable premium features in future versions
+        static let premiumFeaturesEnabled = false
     }
     
     struct Premium {

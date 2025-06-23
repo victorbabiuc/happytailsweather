@@ -53,7 +53,7 @@ class WeatherService: ObservableObject {
         components?.queryItems = [
             URLQueryItem(name: "lat", value: String(latitude)),
             URLQueryItem(name: "lon", value: String(longitude)),
-            URLQueryItem(name: "appid", value: Constants.API.apiKey),
+            URLQueryItem(name: "appid", value: Constants.openWeatherMapAPIKey),
             URLQueryItem(name: "units", value: Constants.API.units)
         ]
         return components?.url
@@ -63,7 +63,7 @@ class WeatherService: ObservableObject {
         var components = URLComponents(string: Constants.API.openWeatherMapBaseURL + Constants.API.currentWeatherEndpoint)
         components?.queryItems = [
             URLQueryItem(name: "q", value: city),
-            URLQueryItem(name: "appid", value: Constants.API.apiKey),
+            URLQueryItem(name: "appid", value: Constants.openWeatherMapAPIKey),
             URLQueryItem(name: "units", value: Constants.API.units)
         ]
         return components?.url
