@@ -2,103 +2,83 @@ import Foundation
 import CoreLocation
 import Combine
 
-enum LocationStatus {
-    case idle
-    case requesting
-    case success
-    case failed
-}
-
 class LocationService: NSObject, ObservableObject {
-    // MARK: - Published Properties
-    @Published var locationStatus: LocationStatus = .idle
     @Published var currentLocation: CLLocation?
-    @Published var currentCity: String?
+    @Published var city: String = ""
+    @Published var locationStatus: LocationStatus = .idle
+    @Published var errorMessage: String = ""
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
-    @Published var errorMessage: String?
     
-    // MARK: - Private Properties
     private let locationManager = CLLocationManager()
     private let geocoder = CLGeocoder()
     
-    // MARK: - Initialization
     override init() {
         super.init()
         setupLocationManager()
     }
     
-    // MARK: - Setup
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 1000 // Update every 1km
+        locationManager.distanceFilter = 100
     }
     
-    // MARK: - Public Methods
     func requestLocationPermission() {
+        print("📍 LocationService: Requesting location permission")
+        
         DispatchQueue.main.async {
             self.locationStatus = .requesting
-            self.errorMessage = nil
+            self.errorMessage = ""
         }
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch self.locationManager.authorizationStatus {
-            case .notDetermined:
-                self.locationManager.requestWhenInUseAuthorization()
-            case .denied, .restricted:
-                DispatchQueue.main.async {
-                    self.locationStatus = .failed
-                    self.errorMessage = "Location access is required to provide weather information for your area."
-                }
-            case .authorizedWhenInUse, .authorizedAlways:
-                self.getCurrentLocation()
-            @unknown default:
-                DispatchQueue.main.async {
-                    self.locationStatus = .failed
-                    self.errorMessage = "Unknown authorization status."
-                }
+        // Check current authorization status
+        let status = locationManager.authorizationStatus
+        print("📍 LocationService: Current authorization status: \(status.rawValue)")
+        
+        switch status {
+        case .notDetermined:
+            print("📍 LocationService: Authorization not determined - requesting permission")
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            print("📍 LocationService: Already authorized - starting location updates")
+            startLocationUpdates()
+        case .denied, .restricted:
+            print("📍 LocationService: Authorization denied/restricted")
+            DispatchQueue.main.async {
+                self.locationStatus = .failed
+                self.errorMessage = "Location access denied. Please enable in Settings."
+            }
+        @unknown default:
+            print("📍 LocationService: Unknown authorization status")
+            DispatchQueue.main.async {
+                self.locationStatus = .failed
+                self.errorMessage = "Unknown authorization status."
             }
         }
     }
     
-    func getCurrentLocation() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard CLLocationManager.locationServicesEnabled() else {
-                DispatchQueue.main.async {
-                    self.locationStatus = .failed
-                    self.errorMessage = "Location services are disabled. Please enable in Settings."
-                }
+    private func startLocationUpdates() {
+        print("📍 LocationService: Starting location updates")
+        locationManager.startUpdatingLocation()
+    }
+    
+    private func stopLocationUpdates() {
+        print("📍 LocationService: Stopping location updates")
+        locationManager.stopUpdatingLocation()
+    }
+    
+    private func geocodeLocation(_ location: CLLocation) {
+        print("📍 LocationService: Geocoding location")
+        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
+            if let error = error {
+                print("📍 LocationService: Geocoding error: \(error.localizedDescription)")
                 return
             }
             
-            DispatchQueue.main.async {
-                self.locationStatus = .requesting
-                self.errorMessage = nil
-            }
-            self.locationManager.startUpdatingLocation()
-        }
-    }
-    
-    func stopLocationUpdates() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.locationManager.stopUpdatingLocation()
-        }
-        DispatchQueue.main.async {
-            self.locationStatus = .idle
-        }
-    }
-    
-    func geocodeLocation(_ location: CLLocation) {
-        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    self?.errorMessage = "Unable to determine city name: \(error.localizedDescription)"
-                    return
-                }
-                
-                if let placemark = placemarks?.first {
-                    let city = placemark.locality ?? placemark.administrativeArea ?? "Unknown Location"
-                    self?.currentCity = city
+            if let placemark = placemarks?.first {
+                DispatchQueue.main.async {
+                    self?.city = placemark.locality ?? "Unknown"
+                    print("📍 LocationService: City resolved: \(placemark.locality ?? "Unknown")")
                 }
             }
         }
@@ -107,59 +87,89 @@ class LocationService: NSObject, ObservableObject {
 
 // MARK: - CLLocationManagerDelegate
 extension LocationService: CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        print("📍 LocationService: Authorization status changed to: \(status.rawValue)")
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.authorizationStatus = status
+        }
+        
+        // Handle all authorization scenarios in the delegate method
+        switch status {
+        case .authorizedWhenInUse, .authorizedAlways:
+            print("📍 LocationService: Authorization granted - starting location updates")
+            startLocationUpdates()
+        case .denied, .restricted:
+            print("📍 LocationService: Authorization denied/restricted")
+            DispatchQueue.main.async { [weak self] in
+                self?.locationStatus = .failed
+                self?.errorMessage = "Location access denied. Please enable in Settings."
+            }
+        case .notDetermined:
+            print("📍 LocationService: Authorization not determined - waiting for user decision")
+            // User will be prompted for permission, wait for their decision
+            break
+        @unknown default:
+            print("📍 LocationService: Unknown authorization status")
+            break
+        }
+    }
+    
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
+        guard let location = locations.last else { 
+            print("📍 LocationService: No location in update")
+            return 
+        }
+        
+        print("📍 LocationService: Location updated - lat: \(location.coordinate.latitude), lon: \(location.coordinate.longitude)")
         
         DispatchQueue.main.async { [weak self] in
             self?.currentLocation = location
             self?.locationStatus = .success
-            self?.errorMessage = nil
-            
-            // Geocode the location to get city name
-            self?.geocodeLocation(location)
-            
-            // Stop updates after getting a good location
-            self?.stopLocationUpdates()
+            self?.errorMessage = ""
         }
+        
+        geocodeLocation(location)
+        stopLocationUpdates()
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        DispatchQueue.main.async { [weak self] in
-            self?.locationStatus = .failed
-            
-            if let clError = error as? CLError {
-                switch clError.code {
-                case .denied:
-                    self?.errorMessage = "Location access denied. Please enable in Settings."
-                case .locationUnknown:
-                    self?.errorMessage = "Unable to determine location. Please try again."
-                case .network:
-                    self?.errorMessage = "Network error. Please check your connection."
-                default:
-                    self?.errorMessage = "Location error: \(error.localizedDescription)"
+        print("📍 LocationService: Location failed with error: \(error.localizedDescription)")
+        
+        // Check if the error is due to location services being disabled
+        if let clError = error as? CLError {
+            switch clError.code {
+            case .denied:
+                // Location services disabled system-wide
+                DispatchQueue.main.async { [weak self] in
+                    self?.locationStatus = .failed
+                    self?.errorMessage = "Location services are disabled. Please enable in Settings."
                 }
-            } else {
-                self?.errorMessage = "Location error: \(error.localizedDescription)"
+            case .locationUnknown:
+                // Location temporarily unavailable
+                DispatchQueue.main.async { [weak self] in
+                    self?.locationStatus = .failed
+                    self?.errorMessage = "Unable to determine location. Please try again."
+                }
+            default:
+                DispatchQueue.main.async { [weak self] in
+                    self?.locationStatus = .failed
+                    self?.errorMessage = "Failed to get location: \(error.localizedDescription)"
+                }
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.locationStatus = .failed
+                self?.errorMessage = "Failed to get location: \(error.localizedDescription)"
             }
         }
     }
-    
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        DispatchQueue.main.async { [weak self] in
-            self?.authorizationStatus = status
-            
-            switch status {
-            case .authorizedWhenInUse, .authorizedAlways:
-                self?.getCurrentLocation()
-            case .denied, .restricted:
-                self?.locationStatus = .failed
-                self?.errorMessage = "Location access is required to provide weather information for your area."
-            case .notDetermined:
-                self?.locationStatus = .idle
-            @unknown default:
-                self?.locationStatus = .failed
-                self?.errorMessage = "Unknown authorization status."
-            }
-        }
-    }
+}
+
+// MARK: - Location Status Enum
+enum LocationStatus {
+    case idle
+    case requesting
+    case success
+    case failed
 } 
