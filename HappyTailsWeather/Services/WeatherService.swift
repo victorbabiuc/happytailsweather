@@ -70,6 +70,7 @@ class WeatherService: ObservableObject {
     }
     
     private func performWeatherRequest(url: URL) async {
+        print("🌤️ WeatherService: Starting weather request for URL: \(url)")
         isLoading = true
         errorMessage = nil
         
@@ -78,11 +79,15 @@ class WeatherService: ObservableObject {
             
             // Check HTTP response
             guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ WeatherService: Invalid response type")
                 await handleError("Invalid response from server")
                 return
             }
             
+            print("🌤️ WeatherService: HTTP Status Code: \(httpResponse.statusCode)")
+            
             guard httpResponse.statusCode == 200 else {
+                print("❌ WeatherService: API Error - Status: \(httpResponse.statusCode)")
                 await handleAPIError(statusCode: httpResponse.statusCode, data: data)
                 return
             }
@@ -91,14 +96,18 @@ class WeatherService: ObservableObject {
             let decoder = JSONDecoder()
             let weatherResponse = try decoder.decode(WeatherResponse.self, from: data)
             
+            print("✅ WeatherService: Successfully decoded weather data for \(weatherResponse.name)")
+            
             // Update on main actor
             weatherData = weatherResponse
             lastUpdated = Date()
             isLoading = false
             
         } catch let decodingError as DecodingError {
+            print("❌ WeatherService: Decoding error: \(decodingError)")
             await handleDecodingError(decodingError)
         } catch {
+            print("❌ WeatherService: Network error: \(error.localizedDescription)")
             await handleError("Network error: \(error.localizedDescription)")
         }
     }

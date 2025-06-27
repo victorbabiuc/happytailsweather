@@ -58,7 +58,6 @@ struct Constants {
     
     struct UserDefaults {
         static let selectedBreed = "selectedBreed"
-        static let isPremium = "isPremium"
         static let notificationsEnabled = "notificationsEnabled"
         static let temperatureUnit = "temperatureUnit"
         static let dogName = "dogName"
@@ -79,35 +78,6 @@ struct Constants {
     
     struct App {
         static let name = "Happy Tails Weather"
-        
-        // Feature flag to disable premium features for App Store approval
-        // Set to true to re-enable premium features in future versions
-        static let premiumFeaturesEnabled = false
-    }
-    
-    struct Premium {
-        static let upgradeTitle = "Unlock Premium Features"
-        static let upgradeSubtitle = "Get personalized walking recommendations and advanced safety insights"
-        static let upgradeButtonText = "Upgrade to Premium"
-        static let premiumBadge = "🌟 Premium"
-        static let bestTimesTitle = "Today's Best Times"
-        static let bestTimesSubtitle = "Optimal walking windows for your dog"
-        
-        static let upgradePrompts = [
-            "Get personalized walking times based on weather and your dog's breed",
-            "Access detailed hourly weather analysis and safety predictions",
-            "Receive priority safety alerts and extended breed recommendations",
-            "Unlock advanced features for the ultimate dog walking experience"
-        ]
-        
-        static let premiumBenefits = [
-            "Today's Best Times - Optimal walking windows",
-            "Hourly weather breakdown and predictions",
-            "Extended breed-specific safety tips",
-            "Priority safety alerts and notifications",
-            "Advanced warning predictions",
-            "Enhanced walk tracking and analytics"
-        ]
     }
     
     struct BestTimes {

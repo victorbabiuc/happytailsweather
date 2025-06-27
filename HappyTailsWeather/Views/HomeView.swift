@@ -7,7 +7,8 @@ struct HomeView: View {
     @Binding var showingLocationPermissionAlert: Bool
     @Binding var selectedTab: Int
     @AppStorage("selectedBreed") private var selectedBreed: DogBreed = .labradorRetriever
-    @AppStorage("isPremium") private var isPremium: Bool = false
+    @State private var showingDetailedWeather = false
+    @State private var isRefreshing = false
     
     private var safetyAssessment: SafetyAssessment? {
         guard let weatherData = weatherService.weatherData else { return nil }
@@ -16,19 +17,50 @@ struct HomeView: View {
     
     var body: some View {
         ZStack {
-            Color(.systemBackground).ignoresSafeArea()
-            ScrollView {
-                VStack(spacing: 20) {
-                    headerSection
-                    weatherStatusCard
-                    safetyAssessmentCard
-                    currentConditionsCard
-                    startWalkButton
-                    Spacer(minLength: 50)
+            // Background with safety-based tint
+            safetyBackgroundColor
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Header Section
+                headerSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                
+                // Hero Section with Temperature and Weather
+                heroSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                
+                // Consolidated Warning Section (if warnings exist)
+                if let assessment = safetyAssessment, !assessment.activeWarnings.isEmpty {
+                    consolidatedWarningSection(assessment)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
+                
+                // Start Walk Button (Primary Action)
+                startWalkButton
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                
+                // Walk Recommendations Section
+                if let assessment = safetyAssessment {
+                    walkRecommendationsSection(assessment)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                }
+                
+                // Enhanced Weather Details Section
+                enhancedDetailsSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                
+                Spacer()
             }
+        }
+        .refreshable {
+            await refreshWeather()
         }
         .alert("Location Access Required", isPresented: $showingLocationPermissionAlert) {
             Button("Settings") {
@@ -40,236 +72,451 @@ struct HomeView: View {
         } message: {
             Text("Happy Tails Weather needs your location to provide accurate weather information for your area.")
         }
+        .sheet(isPresented: $showingDetailedWeather) {
+            detailedWeatherSheet
+        }
     }
+    
+    // MARK: - Background Color Based on Safety
+    private var safetyBackgroundColor: Color {
+        guard let assessment = safetyAssessment else { return Color(.systemBackground) }
+        
+        switch assessment.safetyLevel {
+        case .safe:
+            return Color.green.opacity(0.05)
+        case .caution:
+            return Color.orange.opacity(0.05)
+        case .unsafe:
+            return Color.red.opacity(0.05)
+        }
+    }
+    
     // MARK: - Header Section
     private var headerSection: some View {
-        VStack(spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(locationService.currentCity ?? "Loading location...")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    Text(selectedBreed.characteristics.name)
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                        .fontWeight(.medium)
-                }
-                Spacer()
-                if selectedBreed == .labradorRetriever {
-                    Text("Default")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.orange.opacity(0.1))
-                        .foregroundColor(.orange)
-                        .cornerRadius(8)
-                }
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(locationService.city.isEmpty ? "Loading location..." : locationService.city)
+                    .font(.title2)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                // Breed name removed to save space
             }
-            if locationService.authorizationStatus == .authorizedWhenInUse {
-                Text("Using your current location")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            Spacer()
+            
+            // Refresh button
+            Button(action: {
+                Task {
+                    await refreshWeather()
+                }
+            }) {
+                Image(systemName: isRefreshing ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
+                    .font(.title2)
+                    .foregroundColor(.blue)
+                    .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                    .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
             }
         }
     }
-    private var weatherStatusCard: some View {
+    
+    // MARK: - Hero Section
+    private var heroSection: some View {
         VStack(spacing: 16) {
-            HStack(spacing: 16) {
+            // Temperature and Weather Icon
+            HStack(spacing: 20) {
+                // Large Temperature Display
                 VStack(alignment: .leading, spacing: 4) {
                     if weatherService.hasWeatherData {
                         Text(weatherService.formattedTemperature(weatherService.currentTemperature))
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
                         Text("Feels like \(weatherService.formattedTemperature(weatherService.feelsLikeTemperature))")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     } else {
                         Text("--°F")
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                         Text("Loading weather...")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
                 }
+                
                 Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
+                
+                // Weather Icon
+                VStack(spacing: 8) {
                     if weatherService.hasWeatherData {
+                        Image(systemName: weatherIcon)
+                            .font(.system(size: 48))
+                            .foregroundColor(.blue)
                         Text(weatherService.weatherCondition ?? "Unknown")
-                            .font(.title3)
-                            .fontWeight(.semibold)
+                            .font(.headline)
+                            .fontWeight(.medium)
                             .foregroundColor(.primary)
-                        Text(weatherService.weatherDescription ?? "")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
                     } else {
-                        Text("--")
-                            .font(.title3)
-                            .fontWeight(.semibold)
+                        Image(systemName: "cloud")
+                            .font(.system(size: 48))
                             .foregroundColor(.secondary)
                         Text("Loading...")
-                            .font(.subheadline)
+                            .font(.headline)
+                            .fontWeight(.medium)
                             .foregroundColor(.secondary)
                     }
                 }
             }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            )
+            .onTapGesture {
+                showingDetailedWeather = true
+            }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
-                .fill(Color(.systemGray6))
-        )
     }
-    private var safetyAssessmentCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    
+    // MARK: - Consolidated Warning Section
+    private func consolidatedWarningSection(_ assessment: SafetyAssessment) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Warning header
             HStack {
-                Text("Safety Assessment")
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
                     .font(.headline)
-                    .fontWeight(.semibold)
+                Text(assessment.recommendation)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
                 Spacer()
-                if let assessment = safetyAssessment {
-                    safetyLevelIndicator(assessment.safetyLevel)
-                }
             }
             
-            if let assessment = safetyAssessment {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Safety Status Message
-                    HStack {
-                        Image(systemName: safetyStatusIcon(assessment.safetyLevel))
-                            .foregroundColor(safetyStatusColor(assessment.safetyLevel))
-                            .font(.title2)
-                        Text(assessment.recommendation)
-                            .font(.headline)
-                            .foregroundColor(safetyStatusColor(assessment.safetyLevel))
-                        Spacer()
-                    }
-                    
-                    // Active Warnings
-                    if !assessment.activeWarnings.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Active Warnings")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 8) {
-                                ForEach(assessment.activeWarnings, id: \.self) { warning in
-                                    warningChip(warning)
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Walk Recommendations
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Walk Recommendations")
-                            .font(.subheadline)
+            // Active warnings as badges
+            HStack(spacing: 8) {
+                ForEach(assessment.activeWarnings, id: \.self) { warning in
+                    HStack(spacing: 4) {
+                        Image(systemName: iconForWarning(warning))
+                            .font(.caption)
+                        Text(warning.displayName)
+                            .font(.caption)
                             .fontWeight(.medium)
-                        
-                        HStack {
-                            Image(systemName: "clock")
-                                .foregroundColor(.blue)
-                                .font(.subheadline)
-                            Text("Duration: \(assessment.walkDuration.displayName)")
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
-                            Spacer()
-                        }
-                        
-                        if !assessment.bestTimeRecommendations.isEmpty {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Best Times:")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                ForEach(assessment.bestTimeRecommendations, id: \.displayText) { timeRange in
-                                    Text("• \(timeRange.displayText)")
-                                        .font(.caption)
-                                        .foregroundColor(.primary)
-                                }
-                            }
-                        }
                     }
-                }
-            } else {
-                HStack {
-                    Image(systemName: "clock")
-                        .foregroundColor(.orange)
-                        .font(.title2)
-                    Text("Loading safety assessment...")
-                        .font(.headline)
-                        .foregroundColor(.orange)
-                    Spacer()
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.orange.opacity(0.2))
+                    .cornerRadius(10)
                 }
             }
         }
-        .padding(20)
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
-                .fill(Color(.systemGray6))
+                .fill(Color.orange.opacity(0.1))
         )
     }
-    private var currentConditionsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Current Conditions")
-                .font(.headline)
-                .fontWeight(.semibold)
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 16) {
-                conditionRow(
-                    icon: "thermometer",
-                    title: "Temperature",
-                    value: weatherService.hasWeatherData ? weatherService.formattedTemperature(weatherService.currentTemperature) : "Loading..."
-                )
-                conditionRow(
-                    icon: "humidity",
-                    title: "Humidity",
-                    value: weatherService.hasWeatherData ? weatherService.formattedHumidity(weatherService.humidity) : "Loading..."
-                )
-                conditionRow(
-                    icon: "wind",
-                    title: "Wind Speed",
-                    value: weatherService.hasWeatherData ? weatherService.formattedWindSpeed(weatherService.windSpeed) : "Loading..."
-                )
-                conditionRow(
-                    icon: "sun.max",
-                    title: "UV Index",
-                    value: "Moderate"
-                )
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
-                .fill(Color(.systemGray6))
-        )
-    }
+    
+    // MARK: - Start Walk Button
     private var startWalkButton: some View {
         Button(action: {
             selectedTab = 1 // Navigate to Walk tab
         }) {
-            HStack {
+            HStack(spacing: 12) {
                 Image(systemName: "figure.walk")
                     .font(.title2)
                 Text("Start Walk")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(.title2)
+                    .fontWeight(.bold)
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
+            .frame(height: 64)
             .background(
                 RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
-                    .fill(Color(red: 0, green: 122/255, blue: 255/255))
+                    .fill(Color.blue)
+                    .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
             )
         }
+        .scaleEffect(weatherService.isLoading || locationService.locationStatus == .requesting ? 0.95 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: weatherService.isLoading || locationService.locationStatus == .requesting)
         .disabled(weatherService.isLoading || locationService.locationStatus == .requesting)
     }
+    
+    // MARK: - Walk Recommendations Section
+    private func walkRecommendationsSection(_ assessment: SafetyAssessment) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "figure.walk")
+                    .foregroundColor(.blue)
+                    .font(.headline)
+                Text("Walk Recommendations")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                // Duration
+                HStack(spacing: 8) {
+                    Image(systemName: "clock")
+                        .foregroundColor(.blue)
+                        .font(.subheadline)
+                        .frame(width: 16)
+                    Text("Duration: \(assessment.walkDuration.displayName)")
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                    Spacer()
+                }
+                
+                // Best Times (show at least 2 fully)
+                VStack(alignment: .leading, spacing: 4) {
+                    // Header with icon
+                    HStack {
+                        Image(systemName: "sunrise")
+                            .foregroundColor(.orange)
+                        Text("Best Times:")
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                    }
+                    
+                    // Stacked time ranges
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(assessment.bestTimeRecommendations.prefix(2), id: \.displayText) { timeRange in
+                            Text(timeRange.displayText)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Always show premium hint for now (no subscription system yet)
+                    HStack(spacing: 4) {
+                        Image(systemName: "crown.fill")
+                            .font(.caption)
+                            .foregroundColor(.yellow)
+                        Text("See hourly forecast →")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                .fill(Color.blue.opacity(0.1))
+        )
+    }
+    
+    // MARK: - Enhanced Weather Details Section
+    private var enhancedDetailsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "thermometer.sun")
+                    .foregroundColor(.blue)
+                    .font(.headline)
+                Text("Weather Details")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                Spacer()
+                Button("More") {
+                    showingDetailedWeather = true
+                }
+                .font(.subheadline)
+                .foregroundColor(.blue)
+            }
+            
+            if weatherService.hasWeatherData {
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 12) {
+                    enhancedConditionRow(
+                        icon: "thermometer",
+                        title: "Humidity",
+                        value: weatherService.formattedHumidity(weatherService.humidity),
+                        color: .blue
+                    )
+                    enhancedConditionRow(
+                        icon: "wind",
+                        title: "Wind",
+                        value: weatherService.formattedWindSpeed(weatherService.windSpeed),
+                        color: .blue
+                    )
+                    enhancedConditionRow(
+                        icon: "sun.max",
+                        title: "UV Index",
+                        value: "Moderate",
+                        color: .orange
+                    )
+                    enhancedConditionRow(
+                        icon: "thermometer.sun",
+                        title: "Feels Like",
+                        value: weatherService.formattedTemperature(weatherService.feelsLikeTemperature),
+                        color: .red
+                    )
+                }
+            } else {
+                HStack {
+                    Image(systemName: "clock")
+                        .foregroundColor(.secondary)
+                    Text("Loading weather details...")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 2)
+        )
+    }
+    
+    // MARK: - Detailed Weather Sheet
+    private var detailedWeatherSheet: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                if let assessment = safetyAssessment {
+                    // Walk Recommendations
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Walk Recommendations")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundColor(.blue)
+                            Text("Duration: \(assessment.walkDuration.displayName)")
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                        
+                        if !assessment.bestTimeRecommendations.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Best Times:")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                ForEach(assessment.bestTimeRecommendations, id: \.displayText) { timeRange in
+                                    HStack {
+                                        Image(systemName: "clock.badge.checkmark")
+                                            .foregroundColor(.green)
+                                            .font(.caption)
+                                        Text(timeRange.displayText)
+                                            .font(.subheadline)
+                                        Spacer()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                            .fill(Color.blue.opacity(0.1))
+                    )
+                }
+                
+                // Full Weather Conditions
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Current Conditions")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 16) {
+                        conditionRow(
+                            icon: "thermometer",
+                            title: "Temperature",
+                            value: weatherService.formattedTemperature(weatherService.currentTemperature)
+                        )
+                        conditionRow(
+                            icon: "thermometer.sun",
+                            title: "Feels Like",
+                            value: weatherService.formattedTemperature(weatherService.feelsLikeTemperature)
+                        )
+                        conditionRow(
+                            icon: "humidity",
+                            title: "Humidity",
+                            value: weatherService.formattedHumidity(weatherService.humidity)
+                        )
+                        conditionRow(
+                            icon: "wind",
+                            title: "Wind Speed",
+                            value: weatherService.formattedWindSpeed(weatherService.windSpeed)
+                        )
+                        conditionRow(
+                            icon: "sun.max",
+                            title: "UV Index",
+                            value: "Moderate"
+                        )
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                        .fill(Color(.systemGray6))
+                )
+                
+                Spacer()
+            }
+            .padding(20)
+            .navigationTitle("Weather Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        showingDetailedWeather = false
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Views
+    private func enhancedConditionRow(icon: String, title: String, value: String, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundColor(color)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+            }
+            Spacer()
+        }
+    }
+    
+    private func compactConditionRow(icon: String, title: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundColor(.blue)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+            }
+            Spacer()
+        }
+    }
+    
     private func conditionRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
@@ -288,7 +535,8 @@ struct HomeView: View {
             Spacer()
         }
     }
-    private func safetyLevelIndicator(_ level: SafetyLevel) -> some View {
+    
+    private func safetyLevelBadge(_ level: SafetyLevel) -> some View {
         HStack(spacing: 4) {
             Circle()
                 .fill(safetyStatusColor(level))
@@ -300,9 +548,10 @@ struct HomeView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(safetyStatusColor(level).opacity(0.1))
+        .background(safetyStatusColor(level).opacity(0.2))
         .cornerRadius(8)
     }
+    
     private func warningChip(_ warning: WarningType) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -315,9 +564,11 @@ struct HomeView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color.orange.opacity(0.1))
+        .background(Color.orange.opacity(0.2))
         .cornerRadius(6)
     }
+    
+    // MARK: - Helper Functions
     private func safetyStatusIcon(_ level: SafetyLevel) -> String {
         switch level {
         case .safe:
@@ -328,6 +579,7 @@ struct HomeView: View {
             return "xmark.circle.fill"
         }
     }
+    
     private func safetyStatusColor(_ level: SafetyLevel) -> Color {
         switch level {
         case .safe:
@@ -337,6 +589,56 @@ struct HomeView: View {
         case .unsafe:
             return .red
         }
+    }
+    
+    private func iconForWarning(_ warning: WarningType) -> String {
+        switch warning {
+        case .heatstroke:
+            return "thermometer.sun"
+        case .dehydration:
+            return "drop"
+        case .pawBurn:
+            return "flame"
+        case .hypothermia:
+            return "thermometer.snowflake"
+        case .windChill:
+            return "wind"
+        }
+    }
+    
+    private var weatherIcon: String {
+        guard let weatherData = weatherService.weatherData else { return "cloud" }
+        
+        let condition = weatherData.weather.first?.main.lowercased() ?? ""
+        switch condition {
+        case "clear":
+            return "sun.max.fill"
+        case "clouds":
+            return "cloud.fill"
+        case "rain", "drizzle":
+            return "cloud.rain.fill"
+        case "snow":
+            return "cloud.snow.fill"
+        case "thunderstorm":
+            return "cloud.bolt.rain.fill"
+        case "mist", "fog":
+            return "cloud.fog.fill"
+        default:
+            return "cloud.fill"
+        }
+    }
+    
+    private func fullBestTimesText(_ assessment: SafetyAssessment) -> String {
+        let times = assessment.bestTimeRecommendations.prefix(2).map { $0.displayText }
+        return times.joined(separator: ", ")
+    }
+    
+    private func refreshWeather() async {
+        isRefreshing = true
+        if let location = locationService.currentLocation {
+            await weatherService.fetchWeather(for: location)
+        }
+        isRefreshing = false
     }
 }
 

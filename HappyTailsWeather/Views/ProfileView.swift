@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ProfileView: View {
     @AppStorage("selectedBreed") private var selectedBreed: DogBreed = .labradorRetriever
-    @AppStorage("isPremium") private var isPremium: Bool = false
     @State private var searchText = ""
     @State private var showingNotifications = true
     @State private var useFahrenheit = true

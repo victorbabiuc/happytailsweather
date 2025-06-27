@@ -2,6 +2,27 @@
 
 Happy Tails Weather is a beautifully designed iOS application that helps dog owners find the perfect time to walk their pets. It provides real-time, location-based weather data and a unique safety assessment to ensure every walk is a happy and safe one.
 
+**Version:** 2.0.0  
+**Status:** In Development (January 2025)  
+**Note:** Version 1.0.1 is currently in App Store review
+
+## 🆕 What's New in Version 2.0
+
+### User Experience Enhancements
+- **Dynamic Splash Screen**: Contextual welcome messages based on time of day and weather conditions
+- **Redesigned Home Screen**: 
+  - All information visible without scrolling
+  - Consolidated warning system with clear visual hierarchy
+  - Optimized Start Walk button placement for better thumb reach
+  - Improved walk recommendations with stacked time ranges for readability
+- **Streamlined Interface**: Removed redundant information, focused on what matters most
+
+### Technical Improvements
+- Enhanced app architecture with shared service management
+- Smooth animations and transitions
+- Improved state management across views
+- Better performance and loading states
+
 ## ✨ Features
 
 *   **Live Weather Data:** Get current temperature, wind speed, humidity, and UV index for your precise location.
@@ -10,6 +31,7 @@ Happy Tails Weather is a beautifully designed iOS application that helps dog own
 *   **Walk Tracking:** Start, stop, and track the duration of your walks.
 *   **Walk History:** View a log of your past walks to keep track of your pet's activity.
 *   **Breed Selection:** Choose from a list of popular dog breeds to tailor the safety assessments.
+*   **Dynamic Safety Warnings:** Real-time alerts for heatstroke, dehydration, paw burn, hypothermia, and wind chill risks.
 
 ## 🛠️ Technologies Used
 
@@ -20,4 +42,4 @@ Happy Tails Weather is a beautifully designed iOS application that helps dog own
 
 ## 🚀 App Store Submission
 
-Version 1.0.0 of this application has been submitted to the Apple App Store for review. 
+Version 1.0.1 of this application is currently in App Store review. Version 2.0.0 is in active development with major UX improvements. 

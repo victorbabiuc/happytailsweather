@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @StateObject private var locationService = LocationService()
-    @StateObject private var weatherService = WeatherService()
+    @ObservedObject var locationService: LocationService
+    @ObservedObject var weatherService: WeatherService
     @State private var showingLocationPermissionAlert = false
     @State private var selectedTab = 0
     
@@ -19,67 +19,56 @@ struct MainTabView: View {
                 Text("Home")
             }
             .tag(0)
-            .onAppear {
-                setupLocationAndWeather()
-            }
             
-            WalkView(
-                locationService: locationService,
-                weatherService: weatherService
-            )
-            .tabItem {
-                Image(systemName: "figure.walk")
-                Text("Walk")
-            }
-            .tag(1)
+            WalkView(locationService: locationService, weatherService: weatherService)
+                .tabItem {
+                    Image(systemName: "figure.walk")
+                    Text("Walk")
+                }
+                .tag(1)
             
             ProfileView()
                 .tabItem {
-                    Image(systemName: "person.crop.circle")
+                    Image(systemName: "person.fill")
                     Text("Profile")
                 }
                 .tag(2)
         }
-    }
-    
-    private func setupLocationAndWeather() {
-        locationService.requestLocationPermission()
-        
-        Task {
-            // Add timeout to prevent infinite loop
-            let timeoutSeconds: UInt64 = 10 // 10 second timeout
-            let startTime = DispatchTime.now()
-            
-            while locationService.locationStatus != .success {
-                // Check if we've exceeded timeout
-                let elapsed = DispatchTime.now().uptimeNanoseconds - startTime.uptimeNanoseconds
-                let elapsedSeconds = elapsed / 1_000_000_000
-                
-                if elapsedSeconds >= timeoutSeconds {
-                    print("Location setup timeout - showing alert")
-                    showingLocationPermissionAlert = true
-                    return
+        .onAppear {
+            print("📍 MainTabView: App appeared - requesting location permission")
+            locationService.requestLocationPermission()
+        }
+        .onChange(of: locationService.currentLocation) { oldValue, newValue in
+            if let location = newValue {
+                print("📍 MainTabView: Location updated - lat: \(location.coordinate.latitude), lon: \(location.coordinate.longitude)")
+                print("🌤️ MainTabView: Fetching weather for new location...")
+                Task {
+                    await weatherService.fetchWeather(for: location)
                 }
-                
-                // Check for failure
-                if locationService.locationStatus == .failed {
-                    print("Location setup failed - showing alert")
-                    showingLocationPermissionAlert = true
-                    return
+            }
+        }
+        .onChange(of: locationService.locationStatus) { oldValue, newValue in
+            print("📍 MainTabView: Location status changed to: \(newValue)")
+            if newValue == .failed {
+                showingLocationPermissionAlert = true
+            }
+        }
+        .alert("Location Access Required", isPresented: $showingLocationPermissionAlert) {
+            Button("Settings") {
+                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsUrl)
                 }
-                
-                // Wait before checking again
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             }
-            
-            // Success - fetch weather
-            if let location = locationService.currentLocation {
-                await weatherService.fetchWeather(for: location)
-            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(locationService.errorMessage.isEmpty ? "Location access is required to provide weather information for your area." : locationService.errorMessage)
         }
     }
 }
 
 #Preview {
-    MainTabView()
+    MainTabView(
+        locationService: LocationService(),
+        weatherService: WeatherService()
+    )
 } 
