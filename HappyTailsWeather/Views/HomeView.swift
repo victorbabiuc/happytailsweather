@@ -4,6 +4,7 @@ import CoreLocation
 struct HomeView: View {
     @ObservedObject var locationService: LocationService
     @ObservedObject var weatherService: WeatherService
+    @ObservedObject var walkManager: WalkManager
     @Binding var showingLocationPermissionAlert: Bool
     @Binding var selectedTab: Int
     @AppStorage("selectedBreed") private var selectedBreed: DogBreed = .labradorRetriever
@@ -220,12 +221,21 @@ struct HomeView: View {
     // MARK: - Start Walk Button
     private var startWalkButton: some View {
         Button(action: {
-            selectedTab = 1 // Navigate to Walk tab
+            if walkManager.walkState == .notWalking {
+                // Start walk immediately
+                guard let weatherData = weatherService.weatherData else { return }
+                walkManager.startWalk(breed: selectedBreed, startWeather: weatherData)
+                // Navigate to Walk tab
+                selectedTab = 1
+            } else {
+                // Walk is active, just navigate to Walk tab
+                selectedTab = 1
+            }
         }) {
             HStack(spacing: 12) {
-                Image(systemName: "figure.walk")
+                Image(systemName: walkManager.walkState == .notWalking ? "figure.walk" : "clock")
                     .font(.title2)
-                Text("Start Walk")
+                Text(walkManager.walkState == .notWalking ? "Start Walk" : "View Current Walk")
                     .font(.title2)
                     .fontWeight(.bold)
             }
@@ -234,8 +244,8 @@ struct HomeView: View {
             .frame(height: 64)
             .background(
                 RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
-                    .fill(Color.blue)
-                    .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .fill(walkManager.walkState == .notWalking ? Color.blue : Color.orange)
+                    .shadow(color: (walkManager.walkState == .notWalking ? Color.blue : Color.orange).opacity(0.3), radius: 8, x: 0, y: 4)
             )
         }
         .scaleEffect(weatherService.isLoading || locationService.locationStatus == .requesting ? 0.95 : 1.0)

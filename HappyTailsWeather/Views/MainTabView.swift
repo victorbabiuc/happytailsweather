@@ -3,6 +3,7 @@ import SwiftUI
 struct MainTabView: View {
     @ObservedObject var locationService: LocationService
     @ObservedObject var weatherService: WeatherService
+    @StateObject private var walkManager = WalkManager()
     @State private var showingLocationPermissionAlert = false
     @State private var selectedTab = 0
     
@@ -11,6 +12,7 @@ struct MainTabView: View {
             HomeView(
                 locationService: locationService,
                 weatherService: weatherService,
+                walkManager: walkManager,
                 showingLocationPermissionAlert: $showingLocationPermissionAlert,
                 selectedTab: $selectedTab
             )
@@ -20,7 +22,11 @@ struct MainTabView: View {
             }
             .tag(0)
             
-            WalkView(locationService: locationService, weatherService: weatherService)
+            WalkView(
+                locationService: locationService, 
+                weatherService: weatherService,
+                walkManager: walkManager
+            )
                 .tabItem {
                     Image(systemName: "figure.walk")
                     Text("Walk")

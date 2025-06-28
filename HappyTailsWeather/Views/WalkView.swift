@@ -3,7 +3,7 @@ import SwiftUI
 struct WalkView: View {
     @ObservedObject var locationService: LocationService
     @ObservedObject var weatherService: WeatherService
-    @StateObject private var walkManager = WalkManager()
+    @ObservedObject var walkManager: WalkManager
     @AppStorage("selectedBreed") private var selectedBreed: DogBreed = .labradorRetriever
     @State private var showingWalkSummary = false
     
@@ -593,6 +593,7 @@ struct WalkView: View {
 #Preview {
     WalkView(
         locationService: LocationService(),
-        weatherService: WeatherService()
+        weatherService: WeatherService(),
+        walkManager: WalkManager()
     )
 } 
