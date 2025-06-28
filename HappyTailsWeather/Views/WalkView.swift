@@ -16,6 +16,11 @@ struct WalkView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Streak Display Card
+                    if walkManager.streakCount > 0 {
+                        streakDisplayCard
+                    }
+                    
                     // Current Safety Card
                     currentSafetyCard
                     
@@ -50,6 +55,34 @@ struct WalkView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Streak Display Card
+    private var streakDisplayCard: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("🔥")
+                    .font(.largeTitle)
+                VStack(alignment: .leading) {
+                    Text("Current Streak")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(walkManager.streakCount) Days")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                }
+                Spacer()
+            }
+            
+            if walkManager.bestStreak > walkManager.streakCount {
+                Text("Your longest: \(walkManager.bestStreak) days")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
     }
     
     // MARK: - Current Safety Card

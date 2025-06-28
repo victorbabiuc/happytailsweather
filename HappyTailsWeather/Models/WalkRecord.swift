@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 struct WalkRecord: Codable, Identifiable {
     let id: UUID
@@ -69,12 +70,52 @@ class WalkManager: ObservableObject {
     @Published var walkHistory: [WalkRecord] = []
     @Published var warningsEncountered: [WarningType] = []
     
+    // Streak tracking
+    @AppStorage("currentStreak") private var currentStreak = 0
+    @AppStorage("longestStreak") private var longestStreak = 0
+    @AppStorage("lastWalkDate") private var lastWalkDate: String = ""
+    
     private var timer: Timer?
     private var startTime: Date?
     private var pausedTime: TimeInterval = 0
     
     init() {
         loadWalkHistory()
+    }
+    
+    // MARK: - Streak Properties
+    var streakCount: Int {
+        return currentStreak
+    }
+    
+    var bestStreak: Int {
+        return longestStreak
+    }
+    
+    func updateStreak() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        
+        if let lastDate = formatter.date(from: lastWalkDate) {
+            let dayDifference = Calendar.current.dateComponents([.day], from: lastDate, to: today).day ?? 0
+            
+            if dayDifference == 0 {
+                // Same day, don't change streak
+            } else if dayDifference == 1 {
+                // Next day, increment streak
+                currentStreak += 1
+            } else {
+                // Missed day(s), reset streak
+                currentStreak = 1
+            }
+        } else {
+            // First walk ever
+            currentStreak = 1
+        }
+        
+        lastWalkDate = formatter.string(from: today)
+        longestStreak = max(longestStreak, currentStreak)
     }
     
     func startWalk(breed: DogBreed, startWeather: WeatherResponse) {
@@ -125,6 +166,12 @@ class WalkManager: ObservableObject {
         )
         
         saveWalk(walk)
+        
+        // Update streak for walks longer than 1 minute
+        if walkDuration > 60 {
+            updateStreak()
+        }
+        
         resetWalk()
     }
     

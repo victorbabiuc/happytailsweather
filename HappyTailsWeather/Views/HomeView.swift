@@ -96,10 +96,28 @@ struct HomeView: View {
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(locationService.city.isEmpty ? "Loading location..." : locationService.city)
-                    .font(.title2)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                HStack(spacing: 8) {
+                    Text(locationService.city.isEmpty ? "Loading location..." : locationService.city)
+                        .font(.title2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    // Streak indicator
+                    if walkManager.streakCount > 0 {
+                        HStack(spacing: 4) {
+                            Text("🔥")
+                                .font(.caption)
+                            Text("\(walkManager.streakCount)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
                 // Breed name removed to save space
             }
             Spacer()
