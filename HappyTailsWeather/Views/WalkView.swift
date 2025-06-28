@@ -16,24 +16,13 @@ struct WalkView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Current Safety Card
+                    currentSafetyCard
+                    
                     // Streak Display Card
                     if walkManager.streakCount > 0 {
                         streakDisplayCard
                     }
-                    
-                    // Current Safety Card
-                    currentSafetyCard
-                    
-                    // Walk Controls Section
-                    walkControlsSection
-                    
-                    // Real-Time Monitoring (during walk)
-                    if walkManager.walkState == .walking || walkManager.walkState == .paused {
-                        realTimeMonitoringSection
-                    }
-                    
-                    // Walk History Section
-                    walkHistorySection
                     
                     // Visual Streak Calendar
                     VStack(spacing: 12) {
@@ -93,6 +82,38 @@ struct WalkView: View {
                         .cornerRadius(12)
                     }
                     .padding(.horizontal)
+                    
+                    // Weekly Summary
+                    let stats = walkManager.getWeeklyStats()
+                    if stats.totalWalks > 0 {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Weekly Summary")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            HStack {
+                                statItem("Walks", "\(stats.totalWalks)")
+                                statItem("Total Time", walkManager.formatDuration(stats.totalDuration))
+                                statItem("Avg Duration", walkManager.formatDuration(stats.averageDuration))
+                            }
+                        }
+                        .padding(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                                .fill(Color(.systemGray6))
+                        )
+                    }
+                    
+                    // Walk Controls Section
+                    walkControlsSection
+                    
+                    // Real-Time Monitoring (during walk)
+                    if walkManager.walkState == .walking || walkManager.walkState == .paused {
+                        realTimeMonitoringSection
+                    }
+                    
+                    // Walk History Section
+                    walkHistorySection
                     
                     Spacer(minLength: 50)
                 }
@@ -480,23 +501,6 @@ struct WalkView: View {
                         walkHistoryRow(walk)
                     }
                 }
-            }
-            
-            // Weekly Statistics
-            let stats = walkManager.getWeeklyStats()
-            if stats.totalWalks > 0 {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("This Week")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    HStack {
-                        statItem("Walks", "\(stats.totalWalks)")
-                        statItem("Total Time", walkManager.formatDuration(stats.totalDuration))
-                        statItem("Avg Duration", walkManager.formatDuration(stats.averageDuration))
-                    }
-                }
-                .padding(.top, 8)
             }
         }
         .padding(20)
