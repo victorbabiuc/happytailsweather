@@ -298,34 +298,30 @@ struct HomeView: View {
                     Spacer()
                 }
                 
-                // Best Times (show at least 2 fully)
-                VStack(alignment: .leading, spacing: 4) {
-                    // Header with icon
-                    HStack {
-                        Image(systemName: "sunrise")
-                            .foregroundColor(.orange)
-                        Text("Best Times:")
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                    }
-                    
-                    // Stacked time ranges
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(assessment.bestTimeRecommendations.prefix(2), id: \.displayText) { timeRange in
-                            Text(timeRange.displayText)
+                // Best Times (show 2 time ranges stacked vertically)
+                if !assessment.bestTimeRecommendations.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Header with icon
+                        HStack {
+                            Image(systemName: "sunrise")
+                                .foregroundColor(.orange)
+                            Text("Best Times:")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary)
                         }
-                    }
-                    
-                    // Always show premium hint for now (no subscription system yet)
-                    HStack(spacing: 4) {
-                        Image(systemName: "crown.fill")
-                            .font(.caption)
-                            .foregroundColor(.yellow)
-                        Text("See hourly forecast →")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+                        
+                        // Stacked time ranges with icons
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(assessment.bestTimeRecommendations.prefix(2).enumerated()), id: \.offset) { index, timeRange in
+                                HStack(spacing: 4) {
+                                    Text(timeOfDayIcon(for: timeRange.period))
+                                        .font(.caption)
+                                    Text(timeRange.displayText)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -335,6 +331,22 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
                 .fill(Color.blue.opacity(0.1))
         )
+    }
+    
+    // Helper function to get time of day icon
+    private func timeOfDayIcon(for period: String) -> String {
+        switch period.lowercased() {
+        case let p where p.contains("early") || p.contains("morning"):
+            return "🌅"
+        case let p where p.contains("mid") || p.contains("noon"):
+            return "☀️"
+        case let p where p.contains("evening"):
+            return "🌆"
+        case let p where p.contains("night"):
+            return "🌙"
+        default:
+            return "🕐"
+        }
     }
     
     // MARK: - Enhanced Weather Details Section

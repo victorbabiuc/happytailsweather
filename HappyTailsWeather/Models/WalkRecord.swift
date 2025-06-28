@@ -264,4 +264,21 @@ class WalkManager: ObservableObject {
             calendar.isDate(walk.date, inSameDayAs: date)
         }
     }
+    
+    // MARK: - Time-Based Labels
+    func getTimeBasedLabel(for date: Date) -> String {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        
+        switch hour {
+        case 5..<12:
+            return "Morning Walk 🌅"
+        case 12..<17:
+            return "Afternoon Walk ☀️"
+        case 17..<21:
+            return "Evening Walk 🌆"
+        default:
+            return "Night Walk ��"
+        }
+    }
 } 

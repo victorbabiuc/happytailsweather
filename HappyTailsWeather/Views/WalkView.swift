@@ -527,7 +527,7 @@ struct WalkView: View {
                         VStack(spacing: 8) {
                             Text("Duration: \(walkManager.formatDuration(lastWalk.duration))")
                                 .font(.headline)
-                            Text("Breed: \(lastWalk.breedUsed)")
+                            Text(walkManager.getTimeBasedLabel(for: lastWalk.date))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -551,19 +551,28 @@ struct WalkView: View {
                             .background(Color.orange.opacity(0.1))
                             .cornerRadius(8)
                         }
+                        
+                        // Auto-dismiss indicator
+                        Text("Auto-dismissing in 3 seconds...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 8)
                     }
                 }
                 
                 Spacer()
-                
-                Button("Done") {
-                    showingWalkSummary = false
-                }
-                .buttonStyle(.borderedProminent)
             }
             .padding()
             .navigationTitle("Walk Summary")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // Auto-dismiss after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        showingWalkSummary = false
+                    }
+                }
+            }
         }
     }
     
@@ -574,7 +583,7 @@ struct WalkView: View {
                 Text(walkManager.formatDuration(walk.duration))
                     .font(.headline)
                     .fontWeight(.semibold)
-                Text(walk.breedUsed)
+                Text(walkManager.getTimeBasedLabel(for: walk.date))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
