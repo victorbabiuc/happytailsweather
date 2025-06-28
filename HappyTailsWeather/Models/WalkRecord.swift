@@ -241,4 +241,27 @@ class WalkManager: ObservableObject {
         let seconds = Int(duration) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
+    
+    // MARK: - Calendar Helper Functions
+    func getWeekDays() -> [Date] {
+        let calendar = Calendar.current
+        let today = Date()
+        let weekday = calendar.component(.weekday, from: today)
+        let daysFromSunday = weekday - 1
+        
+        guard let weekStart = calendar.date(byAdding: .day, value: -daysFromSunday, to: today) else {
+            return []
+        }
+        
+        return (0..<7).compactMap { dayOffset in
+            calendar.date(byAdding: .day, value: dayOffset, to: weekStart)
+        }
+    }
+    
+    func hasWalkOnDate(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        return walkHistory.contains { walk in
+            calendar.isDate(walk.date, inSameDayAs: date)
+        }
+    }
 } 

@@ -35,6 +35,65 @@ struct WalkView: View {
                     // Walk History Section
                     walkHistorySection
                     
+                    // Visual Streak Calendar
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("This Week")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        VStack(spacing: 8) {
+                            // Day labels
+                            HStack(spacing: 0) {
+                                ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                                    Text(day)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                            
+                            // Calendar indicators
+                            HStack(spacing: 0) {
+                                ForEach(walkManager.getWeekDays(), id: \.self) { date in
+                                    let calendar = Calendar.current
+                                    let isToday = calendar.isDateInToday(date)
+                                    let hasWalked = walkManager.hasWalkOnDate(date)
+                                    let isPast = date < Date()
+                                    
+                                    ZStack {
+                                        Circle()
+                                            .fill(backgroundColor(for: date, hasWalked: hasWalked, isToday: isToday))
+                                            .frame(width: 32, height: 32)
+                                        
+                                        if isToday {
+                                            Circle()
+                                                .stroke(Color.blue, lineWidth: 2)
+                                                .frame(width: 32, height: 32)
+                                        }
+                                        
+                                        if hasWalked {
+                                            Image(systemName: "checkmark")
+                                                .font(.caption)
+                                                .foregroundColor(.white)
+                                        } else if isPast && !isToday {
+                                            Image(systemName: "xmark")
+                                                .font(.caption)
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    
                     Spacer(minLength: 50)
                 }
                 .padding(.horizontal, 20)
@@ -619,6 +678,21 @@ struct WalkView: View {
             return .orange
         case .unsafe:
             return .red
+        }
+    }
+    
+    private func backgroundColor(for date: Date, hasWalked: Bool, isToday: Bool) -> Color {
+        let calendar = Calendar.current
+        let isPast = date < Date()
+        
+        if isToday {
+            return .blue
+        } else if hasWalked {
+            return .green
+        } else if isPast {
+            return .red
+        } else {
+            return Color(.systemGray4)
         }
     }
 }
