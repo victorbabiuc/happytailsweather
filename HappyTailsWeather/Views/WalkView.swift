@@ -695,7 +695,6 @@ struct WalkView: View {
     }
     
     private func backgroundColor(for date: Date, hasWalked: Bool, isToday: Bool) -> Color {
-        let calendar = Calendar.current
         let isPast = date < Date()
         
         if isToday {
